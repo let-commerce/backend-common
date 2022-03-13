@@ -3,8 +3,8 @@ package ginutils
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
-	"github.com/letcommerce/common-module/response"
-	"github.com/letcommerce/common-module/utils/dates"
+	"github.com/let-commerce/backend-common/response"
+	"github.com/let-commerce/backend-common/utils/dates"
 	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
