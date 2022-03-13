@@ -1,4 +1,4 @@
-name: Auto Tag Backend Common
+name: Auto Tag Backend-Common
 on:
   push:
     branches:
