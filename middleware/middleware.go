@@ -10,7 +10,6 @@ import (
 	"github.com/let-commerce/backend-common/logs"
 	"github.com/let-commerce/backend-common/response"
 	log "github.com/sirupsen/logrus"
-	requestid "github.com/sumit-tembe/gin-requestid"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -49,7 +48,7 @@ func LogAllRequests(ctx *gin.Context) {
 	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
 	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf)) //We have to create a new Buffer, because rdr1 will be read.
 
-	log.Infof("Got Reuqest for URI: [%v] %v - Params: %v, Body: [%+v]. [%v]", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params, readBody(rdr1), requestid.GetRequestIDFromContext(ctx)) // Print request body
+	log.Infof("Start handling reuqest for URI: [%v] %v - Params: %v, Body: [%+v].", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params, readBody(rdr1)) // Print request body
 	ctx.Request.Body = rdr2
 	ctx.Next()
 }
@@ -60,8 +59,7 @@ func LogAllResponses(ctx *gin.Context) {
 	ctx.Next()
 	statusCode := ctx.Writer.Status()
 
-	requestId := requestid.GetRequestIDFromContext(ctx)
-	log.Infof("Got Response while handling URI: [%v] %v - Response Body is: [%v] %v. [%v]", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String(), requestId)
+	log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
 }
 
 func readBody(reader io.Reader) string {
