@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 type bodyLogWriter struct {
@@ -48,7 +49,9 @@ func LogAllRequests(ctx *gin.Context) {
 	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
 	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf)) //We have to create a new Buffer, because rdr1 will be read.
 
-	log.Infof("Start handling reuqest for URI: [%v] %v - Params: %v, Body: [%+v].", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params, readBody(rdr1)) // Print request body
+	if !strings.Contains(ctx.Request.RequestURI, "swagger") {
+		log.Infof("Start handling reuqest for URI: [%v] %v - Params: %v, Body: [%+v].", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params, readBody(rdr1)) // Print request body
+	}
 	ctx.Request.Body = rdr2
 	ctx.Next()
 }
@@ -58,8 +61,9 @@ func LogAllResponses(ctx *gin.Context) {
 	ctx.Writer = blw
 	ctx.Next()
 	statusCode := ctx.Writer.Status()
-
-	log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+	if !strings.Contains(ctx.Request.RequestURI, "swagger") {
+		log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+	}
 }
 
 func readBody(reader io.Reader) string {
