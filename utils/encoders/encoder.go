@@ -16,7 +16,7 @@ func EncodeHashId(id int) string {
 	// read here: https://hashids.org/go/
 	hd := hashids.NewData()
 	hd.Salt = salt
-	hd.MinLength = 4
+	hd.MinLength = 6
 	h, _ := hashids.NewWithData(hd)
 	result, _ := h.Encode([]int{id})
 	return result
@@ -25,7 +25,7 @@ func EncodeHashId(id int) string {
 func DecodeHashId(str string) int {
 	hd := hashids.NewData()
 	hd.Salt = salt
-	hd.MinLength = 4
+	hd.MinLength = 6
 	h, _ := hashids.NewWithData(hd)
 	numbers, _ := h.DecodeWithError(str)
 	return numbers[0]
