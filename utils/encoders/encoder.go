@@ -1,4 +1,4 @@
-package main
+package encoder
 
 import (
 	"github.com/let-commerce/backend-common/env"
@@ -12,8 +12,8 @@ var (
 	//random     = env.GetEnvVar("PRIME")
 )
 
-func EncodeHashId(id int) string {
-	// read here: https://hashids.org/go/
+func EncodeId(id int) string {
+	// using hash id algorithm, https://hashids.org/go/
 	hd := hashids.NewData()
 	hd.Salt = salt
 	hd.MinLength = 6
@@ -22,7 +22,7 @@ func EncodeHashId(id int) string {
 	return result
 }
 
-func DecodeHashId(str string) int {
+func DecodeId(str string) int {
 	hd := hashids.NewData()
 	hd.Salt = salt
 	hd.MinLength = 6
