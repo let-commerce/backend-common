@@ -12,23 +12,23 @@ var (
 	//random     = env.GetEnvVar("PRIME")
 )
 
-func EncodeId(id int) string {
+func EncodeId(id uint) string {
 	// using hash id algorithm, https://hashids.org/go/
 	hd := hashids.NewData()
 	hd.Salt = salt
 	hd.MinLength = 6
 	h, _ := hashids.NewWithData(hd)
-	result, _ := h.Encode([]int{id})
+	result, _ := h.Encode([]int{int(id)})
 	return result
 }
 
-func DecodeId(str string) int {
+func DecodeId(str string) uint {
 	hd := hashids.NewData()
 	hd.Salt = salt
 	hd.MinLength = 6
 	h, _ := hashids.NewWithData(hd)
 	numbers, _ := h.DecodeWithError(str)
-	return numbers[0]
+	return uint(numbers[0])
 }
 
 //func EncodeOptimus(id uint64) uint64 {
