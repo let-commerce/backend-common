@@ -1,8 +1,8 @@
-package encoder
+package encoders
 
 import (
 	"github.com/let-commerce/backend-common/env"
-	"github.com/speps/go-hashids"
+	"github.com/speps/go-hashids/v2"
 )
 
 var (

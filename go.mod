@@ -9,6 +9,7 @@ require (
 	github.com/joho/godotenv v1.4.0
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.8.1
+	github.com/speps/go-hashids/v2 v2.0.1
 	github.com/sumit-tembe/gin-requestid v0.0.0-20191217132119-618fbd2c6306
 	gorm.io/driver/postgres v1.3.1
 	gorm.io/gorm v1.23.2
@@ -39,8 +40,6 @@ require (
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
-	github.com/pjebs/optimus-go v1.0.0 // indirect
-	github.com/speps/go-hashids v2.0.0+incompatible // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
