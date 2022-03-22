@@ -62,7 +62,12 @@ func LogAllResponses(ctx *gin.Context) {
 	ctx.Next()
 	statusCode := ctx.Writer.Status()
 	if !strings.Contains(ctx.Request.RequestURI, "swagger") {
-		log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+		if statusCode >= 400 {
+			log.Warnf("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+
+		} else {
+			log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+		}
 	}
 }
 
