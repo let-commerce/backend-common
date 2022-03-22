@@ -154,6 +154,14 @@ func ReturnResultOrError(result interface{}, errMessage string, err error) {
 	}
 }
 
+func ReturnInternalServerError(errMessage string, err error) {
+	ctx.JSON(http.StatusInternalServerError, response.NewErrorResponse(errMessage, errors.WithStack(err)))
+}
+
+func ReturnBadRequestError(errMessage string, err error) {
+	ctx.JSON(http.StatusBadRequest, response.NewErrorResponse(errMessage, errors.WithStack(err)))
+}
+
 func ReturnMessageResponseOrError(message string, errMessage string, err error) {
 	if err == nil {
 		ctx.JSON(http.StatusOK, response.Response{Message: message})
