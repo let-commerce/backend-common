@@ -64,7 +64,7 @@ func AuthMiddleware(ctx *gin.Context) {
 
 func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string, bool) {
 	if idToken == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "No id token found for this request"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication Error - No id token found for this request"})
 		ctx.Abort()
 		return "", true
 	}
@@ -74,7 +74,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string
 	//verify token
 	token, err := firebaseAuth.VerifyIDToken(context.Background(), idToken)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Token not verified, err: %v", err)})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - Token not verified, err: %v", err)})
 		ctx.Abort()
 		return "", true
 	}
@@ -89,7 +89,7 @@ func tryExtractConsumerIdFromUid(ctx *gin.Context, firebaseAuth *auth.Client, ui
 	}
 	userRecord, err2 := firebaseAuth.GetUser(context.Background(), uid)
 	if err2 != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("User record not found: %v", err2)})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - User record not found: %v", err2)})
 		ctx.Abort()
 		return 0, false
 	}
@@ -98,7 +98,7 @@ func tryExtractConsumerIdFromUid(ctx *gin.Context, firebaseAuth *auth.Client, ui
 	var result int
 	err2 = ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id FROM consumers.consumers WHERE email = ?", userRecord.Email).Scan(&result).Error
 	if err2 != nil || result == 0 {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Consumer record not found for email: %v, err: %v", userRecord.Email, err2)})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - Consumer record not found for email: %v, err: %v", userRecord.Email, err2)})
 		ctx.Abort()
 		return 0, false
 	}
