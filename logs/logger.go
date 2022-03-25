@@ -67,8 +67,7 @@ func (f *PlainFormatter) Format(entry *log.Entry) ([]byte, error) {
 }
 
 func Caller(f *runtime.Frame) string {
-	fileName := f.File[strings.LastIndex(f.File, "/") : len(f.File)-1]
-	fileName = strings.ReplaceAll(fileName, "/go/pkg/mod/github.com/let-commerce/", "")
+	fileName := f.File[strings.LastIndex(f.File, "/")+1 : len(f.File)]
 	return fmt.Sprintf("%s:%d", fileName, f.Line)
 }
 
