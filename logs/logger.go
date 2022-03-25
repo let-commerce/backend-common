@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	requestid "github.com/let-commerce/backend-common/request-id"
 	log "github.com/sirupsen/logrus"
-	requestid "github.com/sumit-tembe/gin-requestid"
 	"io"
 	"os"
 	"runtime"
@@ -69,7 +69,7 @@ func (f *PlainFormatter) Format(entry *log.Entry) ([]byte, error) {
 func Caller(f *runtime.Frame) string {
 	p, _ := os.Getwd()
 	fileName := strings.TrimPrefix(f.File, p)
-	fileName = strings.ReplaceAll(fileName, "/go/pkg/mod/github.com/letcommerce/", "")
+	fileName = strings.ReplaceAll(fileName, "/go/pkg/mod/github.com/let-commerce/", "")
 	return fmt.Sprintf("%s:%d", fileName, f.Line)
 }
 
@@ -134,6 +134,6 @@ func (f *JsonFormatter) Format(entry *log.Entry) ([]byte, error) {
 func CallerWithFunc(f *runtime.Frame) (string, string, string) {
 	p, _ := os.Getwd()
 	fileName := strings.TrimPrefix(f.File, p)
-	fileName = strings.ReplaceAll(fileName, "/go/pkg/mod/github.com/letcommerce/", "")
+	fileName = strings.ReplaceAll(fileName, "/go/pkg/mod/github.com/let-commerce/", "")
 	return f.Func.Name(), fileName, strconv.Itoa(f.Line)
 }
