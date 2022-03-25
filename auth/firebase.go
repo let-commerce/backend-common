@@ -54,6 +54,7 @@ func AuthMiddleware(ctx *gin.Context) {
 	if WhiteListUri.Has(ctx.Request.URL.RequestURI()) {
 		ctx.JSON(http.StatusOK, gin.H{})
 		ctx.Abort()
+		return
 	}
 	uid, done := getUid(ctx, idToken, firebaseAuth)
 	if uid == "" || done {
