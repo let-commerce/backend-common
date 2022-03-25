@@ -26,13 +26,11 @@ func uuid(len int) string {
 }
 
 //RequestID is a middleware that injects a 'RequestID' into the context and header of each request.
-func RequestID(gen generator) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		xRequestID := uuid(8)
+func RequestID(ctx *gin.Context) {
+	xRequestID := uuid(8)
 
-		c.Set(xRequestIDKey, xRequestID)
-		c.Next()
-	}
+	ctx.Set(xRequestIDKey, xRequestID)
+	ctx.Next()
 }
 
 // GetRequestIDFromContext returns 'RequestID' from the given context if present.
