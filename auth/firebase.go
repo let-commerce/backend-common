@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,8 @@ import (
 var (
 	FirebaseAuthClient      *auth.Client
 	UserIdToConsumerIdCache map[string]int
-	TokenCache              *cache.Cache // Keeps token stored for 20 minutes
+	TokenCache              *cache.Cache                     // Keeps token stored for 20 minutes
+	WhiteListUri            = sets.NewString("/favicon.ico") // List of urls that don't need authentication
 )
 
 func SetupFirebase(accountKeyPath string) *auth.Client {
@@ -49,6 +51,10 @@ func AuthMiddleware(ctx *gin.Context) {
 	firebaseAuth := ctx.MustGet("firebaseAuth").(*auth.Client)
 	authorizationToken := ctx.GetHeader("Authorization")
 	idToken := strings.TrimSpace(strings.Replace(authorizationToken, "Bearer", "", 1))
+	if WhiteListUri.Has(ctx.Request.URL.RequestURI()) {
+		ctx.JSON(http.StatusOK, gin.H{})
+		ctx.Abort()
+	}
 	uid, done := getUid(ctx, idToken, firebaseAuth)
 	if uid == "" || done {
 		return
