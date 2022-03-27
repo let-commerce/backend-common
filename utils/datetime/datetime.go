@@ -10,5 +10,5 @@ func ParseDate(date string) (time.Time, error) {
 }
 
 func FromIso8601String(str string) (time.Time, error) {
-	return time.Parse("2006-01-02T15:04:05.000", str)
+	return time.Parse("2006-01-02T15:04:05.000000", str)
 }
