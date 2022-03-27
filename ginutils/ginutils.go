@@ -1,6 +1,7 @@
 package ginutils
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"github.com/let-commerce/backend-common/response"
@@ -111,7 +112,7 @@ func GetBoolQuery(paramName string) (bool, bool, error) {
 func BindDTO[T any](dto T) (T, error) {
 	err := ctx.Bind(&dto)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, response.NewErrorResponse("Got error while binding dto", errors.WithStack(err)))
+		ctx.JSON(http.StatusInternalServerError, response.NewErrorResponse(fmt.Sprintf("Got error while binding dto: %v", dto), errors.WithStack(err)))
 	}
 	return dto, err
 }

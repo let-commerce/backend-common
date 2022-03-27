@@ -90,8 +90,8 @@ func readBody(reader io.Reader) string {
 func RecoveryHandler(c *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
-			goErr := errors.Wrap(err, 1)
-			log.Errorf("Got panic while handling [%v] %v: %+v, stack: \n%s", c.Request.Method, c.Request.RequestURI, err, Caller(goErr.StackFrames(), 3))
+			goErr := errors.Wrap(err, 0)
+			log.Errorf("Got panic while handling [%v] %v: %+v, stack: \n%s", c.Request.Method, c.Request.RequestURI, err, Caller(goErr.StackFrames(), 0))
 
 			c.JSON(http.StatusInternalServerError, response.ErrorResponse{Message: "got panic", Error: fmt.Sprintf("%v", err)})
 		}
@@ -104,7 +104,7 @@ func Caller(stack []errors.StackFrame, maxDepth int) string {
 	p, _ := os.Getwd()
 
 	for i, stackFrame := range stack {
-		if i < maxDepth {
+		if maxDepth == 0 || i < maxDepth {
 			fileName := strings.ReplaceAll(stackFrame.File, p, "")
 			fileName = strings.ReplaceAll(fileName, "go/pkg/mod/github.com/let-commerce/", "")
 			fileName = strings.ReplaceAll(fileName, "go/pkg/mod/github.com/gin-gonic/", "")

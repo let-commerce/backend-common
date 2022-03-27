@@ -27,7 +27,7 @@ func uuid(len int) string {
 
 //RequestID is a middleware that injects a 'RequestID' into the context and header of each request.
 func RequestID(ctx *gin.Context) {
-	xRequestID := uuid(6)
+	xRequestID := uuid(7)
 
 	ctx.Set(xRequestIDKey, xRequestID)
 	ctx.Next()
