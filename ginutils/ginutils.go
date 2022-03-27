@@ -17,7 +17,7 @@ var (
 )
 
 func Init(ginCtx *gin.Context) {
-	ctx = ginCtx
+	ctx = ginCtx.Copy()
 }
 
 // GetIntParam method binds new int Param from ctx and return http.StatusBadRequest if it couldn't parse

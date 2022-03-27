@@ -24,7 +24,7 @@ var (
 const defaultLogPath = "gin.log"
 
 func SetRequestId(ginCtx *gin.Context) {
-	ctx = ginCtx
+	ctx = ginCtx.Copy()
 }
 
 func InitLogger(path string, env string, serviceName string) {
