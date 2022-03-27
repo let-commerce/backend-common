@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"github.com/let-commerce/backend-common/response"
-	"github.com/let-commerce/backend-common/utils/dates"
+	"github.com/let-commerce/backend-common/utils/datetime"
 	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
@@ -68,7 +68,7 @@ func GetUIntQuery(paramName string) (uint, bool, error) {
 // GetDateParam method binds date string Param from ctx (in format: "2006-01-15")
 func GetDateParam(paramName string) (time.Time, error) {
 	paramVal := ctx.Params.ByName(paramName)
-	date, err := dates.ParseDate(paramVal)
+	date, err := datetime.ParseDate(paramVal)
 	return date, err
 }
 
@@ -76,7 +76,7 @@ func GetDateParam(paramName string) (time.Time, error) {
 func GetDateQuery(paramName string) (time.Time, bool, error) {
 	paramVal, exists := ctx.GetQuery(paramName)
 	if exists && paramVal != "null" {
-		date, err := dates.ParseDate(paramVal)
+		date, err := datetime.ParseDate(paramVal)
 		return date, exists, err
 	}
 	return time.Time{}, exists, nil
