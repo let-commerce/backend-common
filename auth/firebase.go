@@ -23,6 +23,7 @@ var (
 	UserIdToConsumerIdCache map[string]int
 	TokenCache              *cache.Cache                     // Keeps token stored for 20 minutes
 	WhiteListUri            = sets.NewString("/favicon.ico") // List of urls that don't need authentication
+
 )
 
 func SetupFirebase(accountKeyPath string) *auth.Client {
@@ -66,7 +67,9 @@ func AuthMiddleware(ctx *gin.Context) {
 	if !success {
 		return
 	}
-	ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
+	if consumerId != 0 {
+		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
+	}
 	ctx.Next()
 }
 
@@ -106,9 +109,7 @@ func tryExtractConsumerIdFromUid(ctx *gin.Context, firebaseAuth *auth.Client, ui
 	var result int
 	err2 = ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id FROM consumers.consumers WHERE email = ?", userRecord.Email).Scan(&result).Error
 	if err2 != nil || result == 0 {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - Consumer record not found for email: %v, err: %v, (%v)", userRecord.Email, err2, env.GetEnvVar("SERVICE_NAME"))})
-		ctx.Abort()
-		return 0, false
+		return 0, true
 	}
 	UserIdToConsumerIdCache[uid] = result
 	return result, true
