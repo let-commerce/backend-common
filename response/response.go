@@ -13,7 +13,7 @@ var (
 )
 
 func Init(ginCtx *gin.Context) {
-	ctx = ginCtx.Copy()
+	ctx = ginCtx
 }
 
 type Response struct {
