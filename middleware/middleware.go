@@ -52,7 +52,12 @@ func LogAllRequests(ctx *gin.Context) {
 	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf)) //We have to create a new Buffer, because rdr1 will be read.
 
 	if !strings.Contains(ctx.Request.RequestURI, "swagger") {
-		log.Infof("Start handling reuqest for URI: [%v] %v - Params: %v, Body: [%+v].", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params, readBody(rdr1)) // Print request body
+		body := readBody(rdr1)
+		if body != "" {
+			log.Infof("Start handling reuqest for URI: [%v] %v - Params: %v, Body: [%+v].", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params, body) // Print request body
+		} else {
+			log.Infof("Start handling reuqest for URI: [%v] %v - Params: %v.", ctx.Request.Method, ctx.Request.RequestURI, ctx.Params) // Print request body
+		}
 	}
 	ctx.Request.Body = rdr2
 	ctx.Next()
@@ -85,8 +90,8 @@ func readBody(reader io.Reader) string {
 func RecoveryHandler(c *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
-			goErr := errors.Wrap(err, 2)
-			log.Errorf("Got panic while handling [%v] %v: %+v, stack: /n%s", c.Request.Method, c.Request.RequestURI, err, Caller(goErr.StackFrames(), 3))
+			goErr := errors.Wrap(err, 1)
+			log.Errorf("Got panic while handling [%v] %v: %+v, stack: \n%s", c.Request.Method, c.Request.RequestURI, err, Caller(goErr.StackFrames(), 3))
 
 			c.JSON(http.StatusInternalServerError, response.ErrorResponse{Message: "got panic", Error: fmt.Sprintf("%v", err)})
 		}
