@@ -62,14 +62,20 @@ func AuthMiddleware(ctx *gin.Context) {
 	var consumerCached, traderCached, isAdmin bool
 	var consumerId, traderId int
 
-	if cacheConsumerId, ok := UserIdToConsumerIdCache[uid]; ok && cacheConsumerId != 0 {
-		consumerId = cacheConsumerId
+	if cacheConsumerId, ok := UserIdToConsumerIdCache[uid]; ok {
+		log.Infof("found consumer id in cache : %v", cacheConsumerId)
+		if cacheConsumerId != 0 {
+			consumerId = cacheConsumerId
+		}
 		consumerCached = ok
 	}
 
-	if cacheTraderId, ok := UserIdToTraderCache[uid]; ok && cacheTraderId.ID != 0 {
-		traderId = cacheTraderId.ID
-		isAdmin = cacheTraderId.IsAdmin
+	if cacheTraderId, ok := UserIdToTraderCache[uid]; ok {
+		log.Infof("found trader id in cache : %v", cacheTraderId)
+		if cacheTraderId.ID != 0 {
+			traderId = cacheTraderId.ID
+			isAdmin = cacheTraderId.IsAdmin
+		}
 		traderCached = ok
 	}
 
@@ -103,6 +109,7 @@ func AuthMiddleware(ctx *gin.Context) {
 			ctx.Set("IS_ADMIN", isAdmin)
 		}
 	}
+	log.Infof("authenicated_consumer_id = %v, authenticated_trader_id = %v, is_admin = %v", consumerId, traderId, isAdmin)
 	ctx.Next()
 }
 
