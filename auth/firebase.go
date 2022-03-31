@@ -143,6 +143,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string
 	}
 	TokenCache.Set(idToken, token.UID, cache.DefaultExpiration)
 	UserIdToConsumerIdCache = map[string]int{}
+	UserIdToTraderCache = map[string]GetTraderResult{}
 	return token.UID, false
 }
 
