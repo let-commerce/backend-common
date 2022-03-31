@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"gorm.io/gorm"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -19,11 +18,11 @@ import (
 )
 
 var (
-	FirebaseAuthClient      *auth.Client
-	UserIdToConsumerIdCache map[string]int
-	TokenCache              *cache.Cache                     // Keeps token stored for 20 minutes
-	WhiteListUri            = sets.NewString("/favicon.ico") // List of urls that don't need authentication
-
+	FirebaseAuthClient        *auth.Client
+	TradersFirebaseAuthClient *auth.Client
+	UserIdToConsumerIdCache   map[string]int
+	UserIdToTraderCache       map[string]GetTraderResult
+	TokenCache                *cache.Cache // Keeps token stored for 20 minutes
 )
 
 func SetupFirebase(accountKeyPath string) *auth.Client {
@@ -31,6 +30,7 @@ func SetupFirebase(accountKeyPath string) *auth.Client {
 	if err != nil {
 		log.Panicf("Unable to load serviceAccountKeys.json file: %v", err)
 	}
+
 	opt := option.WithCredentialsFile(serviceAccountKeyFilePath)
 	//Firebase admin SDK initialization
 	app, err := firebase.NewApp(context.Background(), nil, opt)
@@ -52,23 +52,68 @@ func AuthMiddleware(ctx *gin.Context) {
 	firebaseAuth := ctx.MustGet("firebaseAuth").(*auth.Client)
 	authorizationToken := ctx.GetHeader("Authorization")
 	idToken := strings.TrimSpace(strings.Replace(authorizationToken, "Bearer", "", 1))
-	if WhiteListUri.Has(ctx.Request.URL.RequestURI()) {
-		ctx.JSON(http.StatusOK, gin.H{})
-		ctx.Abort()
-		return
-	}
 	uid, done := getUid(ctx, idToken, firebaseAuth)
 	if uid == "" || done {
 		return
 	}
 
 	ctx.Set("FIREBASE_USER_UID", uid)
-	consumerId, success := tryExtractConsumerIdFromUid(ctx, firebaseAuth, uid)
-	if !success {
+
+	var consumerCached, traderCached, isAdmin bool
+	var consumerId, traderId int
+
+	if cacheConsumerId, ok := UserIdToConsumerIdCache[uid]; ok && cacheConsumerId != 0 {
+		consumerId = cacheConsumerId
+		consumerCached = ok
+	}
+
+	if cacheTraderId, ok := UserIdToTraderCache[uid]; ok && cacheTraderId.ID != 0 {
+		traderId = cacheTraderId.ID
+		isAdmin = cacheTraderId.IsAdmin
+		traderCached = ok
+	}
+
+	var success bool
+	var email string
+	if !consumerCached || !traderCached {
+		email, success = tryGetUserEmail(ctx, firebaseAuth, uid)
+		if !success {
+			return
+		}
+	}
+	if !consumerCached {
+		consumerId, success = tryExtractConsumerIdFromUid(ctx, email, uid)
+	}
+	if !traderCached {
+		traderId, isAdmin, success = tryExtractTraderIdFromUid(ctx, email, uid)
+	}
+
+	if consumerId == 0 && traderId == 0 {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error. User not found.")})
+		ctx.Abort()
 		return
 	}
+
 	if consumerId != 0 {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
+	}
+	if traderId != 0 {
+		ctx.Set("AUTHENTICATED_TRADER_ID", traderId)
+		if isAdmin {
+			ctx.Set("IS_ADMIN", isAdmin)
+		}
+	}
+	ctx.Next()
+}
+
+// RequireAdminAuth : to verify only admins access specific endpoint
+func RequireAdminAuth(ctx *gin.Context) {
+	isAdmin, exists := ctx.Get("IS_ADMIN")
+
+	if !exists || !isAdmin.(bool) {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error. No sufficient permissions.")})
+		ctx.Abort()
+		return
 	}
 	ctx.Next()
 }
@@ -94,23 +139,39 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string
 	return token.UID, false
 }
 
-func tryExtractConsumerIdFromUid(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (int, bool) {
-	if consumerId, ok := UserIdToConsumerIdCache[uid]; ok {
-		return consumerId, true
-	}
-	userRecord, err2 := firebaseAuth.GetUser(context.Background(), uid)
-	if err2 != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - User record not found: %v, (%v)", err2, env.GetEnvVar("SERVICE_NAME"))})
-		ctx.Abort()
+func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (int, bool) {
+	var result int
+	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id FROM consumers.consumers WHERE email = ?", email).Scan(&result).Error
+	UserIdToConsumerIdCache[uid] = result
+	if err2 != nil || result == 0 {
 		return 0, false
 	}
-	ctx.Set("FIREBASE_USER_EMAIL", userRecord.Email)
-
-	var result int
-	err2 = ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id FROM consumers.consumers WHERE email = ?", userRecord.Email).Scan(&result).Error
-	if err2 != nil || result == 0 {
-		return 0, true
-	}
-	UserIdToConsumerIdCache[uid] = result
 	return result, true
+}
+
+type GetTraderResult struct {
+	ID      int
+	IsAdmin bool
+}
+
+func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (int, bool, bool) {
+	var result GetTraderResult
+	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_admin FROM traders.traders WHERE email = ?", email).Scan(&result).Error
+	UserIdToTraderCache[uid] = result
+
+	if err2 != nil || result.ID == 0 {
+		return 0, false, false
+	}
+	return result.ID, result.IsAdmin, true
+}
+
+func tryGetUserEmail(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (string, bool) {
+	userRecord, err := firebaseAuth.GetUser(context.Background(), uid)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - User record not found: %v, (%v)", err, env.GetEnvVar("SERVICE_NAME"))})
+		ctx.Abort()
+		return "", false
+	}
+	ctx.Set("FIREBASE_USER_EMAIL", userRecord.Email)
+	return userRecord.Email, true
 }

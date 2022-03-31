@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
-	"github.com/let-commerce/backend-common/ginutils"
 	"github.com/let-commerce/backend-common/logs"
 	"github.com/let-commerce/backend-common/response"
 	log "github.com/sirupsen/logrus"
@@ -40,8 +39,6 @@ func LogErrorResponse(ctx *gin.Context) {
 }
 
 func InitGinCtx(ctx *gin.Context) {
-	ginutils.Init(ctx)
-	response.Init(ctx)
 	logs.SetRequestId(ctx)
 	ctx.Next()
 }
