@@ -20,7 +20,7 @@ import (
 var (
 	FirebaseAuthClient        *auth.Client
 	TradersFirebaseAuthClient *auth.Client
-	UserIdToConsumerIdCache   map[string]int
+	UserIdToConsumerIdCache   map[string]uint
 	UserIdToTraderCache       map[string]GetTraderResult
 	TokenCache                *cache.Cache // Keeps token stored for 20 minutes
 )
@@ -60,7 +60,7 @@ func AuthMiddleware(ctx *gin.Context) {
 	ctx.Set("FIREBASE_USER_UID", uid)
 
 	var consumerCached, traderCached, isAdmin bool
-	var consumerId, traderId int
+	var consumerId, traderId uint
 
 	if cacheConsumerId, ok := UserIdToConsumerIdCache[uid]; ok {
 		log.Infof("found consumer id in cache : %v", cacheConsumerId)
@@ -142,13 +142,13 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string
 		return "", true
 	}
 	TokenCache.Set(idToken, token.UID, cache.DefaultExpiration)
-	UserIdToConsumerIdCache = map[string]int{}
+	UserIdToConsumerIdCache = map[string]uint{}
 	UserIdToTraderCache = map[string]GetTraderResult{}
 	return token.UID, false
 }
 
-func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (int, bool) {
-	var result int
+func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool) {
+	var result uint
 	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id FROM consumers.consumers WHERE email = ?", email).Scan(&result).Error
 	UserIdToConsumerIdCache[uid] = result
 	if err2 != nil || result == 0 {
@@ -158,11 +158,11 @@ func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (in
 }
 
 type GetTraderResult struct {
-	ID      int
+	ID      uint
 	IsAdmin bool
 }
 
-func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (int, bool, bool) {
+func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool, bool) {
 	var result GetTraderResult
 	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_admin FROM traders.traders WHERE email = ?", email).Scan(&result).Error
 	UserIdToTraderCache[uid] = result
