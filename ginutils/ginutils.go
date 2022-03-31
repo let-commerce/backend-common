@@ -14,11 +14,15 @@ import (
 	"time"
 )
 
-// ValidateConsumerId method validates the given consumer id matches the authenticated one
-func ValidateConsumerId(ctx *gin.Context, consumerId uint) bool {
+// ValidateAuthorized method validates the given consumer id matches the authenticated one, or he is admin
+func ValidateAuthorized(ctx *gin.Context, consumerId uint) bool {
 	authenticatedConsumerId := auth.GetAuthenticatedConsumerId(ctx)
+	isAdmin := auth.GetIsAdmin(ctx)
+	if isAdmin {
+		return true
+	}
 	if authenticatedConsumerId == 0 || consumerId != authenticatedConsumerId {
-		log.Errorf("got unauthenticated consumer id! consumer id: %v authenticatedConsumerId: %v", consumerId, authenticatedConsumerId)
+		log.Errorf("got unauthenticated consumer id! consumer id: %v authenticatedConsumerId: %v isAdmin: %v", consumerId, authenticatedConsumerId, isAdmin)
 		ctx.JSON(http.StatusUnauthorized, response.NewErrorResponse("Unauthenticated", nil))
 		return false
 	}

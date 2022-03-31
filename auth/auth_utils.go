@@ -9,3 +9,11 @@ func GetAuthenticatedConsumerId(ctx *gin.Context) uint {
 	}
 	return 0
 }
+
+func GetIsAdmin(ctx *gin.Context) bool {
+	isAdmin, exists := ctx.Get("IS_ADMIN")
+	if exists {
+		return isAdmin.(bool)
+	}
+	return false
+}
