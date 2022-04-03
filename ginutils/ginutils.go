@@ -15,7 +15,7 @@ import (
 )
 
 // ValidateAuthorized method validates the given consumer id matches the authenticated one, or he is admin
-func ValidateAuthorized(ctx *gin.Context, consumerId uint) bool {
+func ValidateAuthorized(ctx *gin.Context, consumerId uint, allowGuests bool) bool {
 	authenticatedConsumerId := auth.GetAuthenticatedConsumerId(ctx)
 	isAdmin := auth.GetIsAdmin(ctx)
 	if isAdmin {
@@ -24,6 +24,11 @@ func ValidateAuthorized(ctx *gin.Context, consumerId uint) bool {
 	if authenticatedConsumerId == 0 || consumerId != authenticatedConsumerId {
 		log.Errorf("got unauthenticated consumer id! consumer id: %v authenticatedConsumerId: %v isAdmin: %v", consumerId, authenticatedConsumerId, isAdmin)
 		ctx.JSON(http.StatusUnauthorized, response.NewErrorResponse("Unauthenticated", nil))
+		return false
+	}
+	if !allowGuests && auth.GetIsGuest(ctx) {
+		log.Errorf("unauthorized guest operation! consumer id: %v authenticatedConsumerId: %v isAdmin: %v", consumerId, authenticatedConsumerId, isAdmin)
+		ctx.JSON(http.StatusUnauthorized, response.NewErrorResponse("Unauthorized", nil))
 		return false
 	}
 	return true

@@ -20,7 +20,7 @@ import (
 var (
 	FirebaseAuthClient        *auth.Client
 	TradersFirebaseAuthClient *auth.Client
-	UserIdToConsumerIdCache   map[string]uint
+	UserIdToConsumerCache     map[string]GetConsumerResult
 	UserIdToTraderCache       map[string]GetTraderResult
 	TokenCache                *cache.Cache // Keeps token stored for 20 minutes
 )
@@ -59,22 +59,23 @@ func AuthMiddleware(ctx *gin.Context) {
 
 	ctx.Set("FIREBASE_USER_UID", uid)
 
-	var consumerCached, traderCached, isAdmin bool
+	var consumerCached, traderCached, isAdmin, isGuest bool
 	var consumerId, traderId uint
 
-	if cacheConsumerId, ok := UserIdToConsumerIdCache[uid]; ok {
-		log.Infof("found consumer id in cache : %v", cacheConsumerId)
-		if cacheConsumerId != 0 {
-			consumerId = cacheConsumerId
+	if cacheConsumer, ok := UserIdToConsumerCache[uid]; ok {
+		log.Infof("found consumer id in cache : %v", cacheConsumer)
+		if cacheConsumer.ID != 0 {
+			consumerId = cacheConsumer.ID
+			isGuest = cacheConsumer.IsGuest
 		}
 		consumerCached = ok
 	}
 
-	if cacheTraderId, ok := UserIdToTraderCache[uid]; ok {
-		log.Infof("found trader id in cache : %v", cacheTraderId)
-		if cacheTraderId.ID != 0 {
-			traderId = cacheTraderId.ID
-			isAdmin = cacheTraderId.IsAdmin
+	if cacheTrader, ok := UserIdToTraderCache[uid]; ok {
+		log.Infof("found trader id in cache : %v", cacheTrader)
+		if cacheTrader.ID != 0 {
+			traderId = cacheTrader.ID
+			isAdmin = cacheTrader.IsAdmin
 		}
 		traderCached = ok
 	}
@@ -88,7 +89,7 @@ func AuthMiddleware(ctx *gin.Context) {
 		}
 	}
 	if !consumerCached {
-		consumerId, success = tryExtractConsumerIdFromUid(ctx, email, uid)
+		consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
 	}
 	if !traderCached {
 		traderId, isAdmin, success = tryExtractTraderIdFromUid(ctx, email, uid)
@@ -102,6 +103,7 @@ func AuthMiddleware(ctx *gin.Context) {
 
 	if consumerId != 0 {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
+		ctx.Set("IS_GUEST", isGuest)
 	}
 	if traderId != 0 {
 		ctx.Set("AUTHENTICATED_TRADER_ID", traderId)
@@ -142,24 +144,29 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string
 		return "", true
 	}
 	TokenCache.Set(idToken, token.UID, cache.DefaultExpiration)
-	UserIdToConsumerIdCache = map[string]uint{}
+	UserIdToConsumerCache = map[string]GetConsumerResult{}
 	UserIdToTraderCache = map[string]GetTraderResult{}
 	return token.UID, false
 }
 
-func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool) {
-	var result uint
-	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id FROM consumers.consumers WHERE email = ?", email).Scan(&result).Error
-	UserIdToConsumerIdCache[uid] = result
-	if err2 != nil || result == 0 {
-		return 0, false
+func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (id uint, isGuest bool, success bool) {
+	var result GetConsumerResult
+	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_guest FROM consumers.consumers WHERE email = ?", email).Scan(&result).Error
+	UserIdToConsumerCache[uid] = result
+	if err2 != nil || result.ID == 0 {
+		return 0, true, false
 	}
-	return result, true
+	return result.ID, result.IsGuest, true
 }
 
 type GetTraderResult struct {
 	ID      uint
 	IsAdmin bool
+}
+
+type GetConsumerResult struct {
+	ID      uint
+	IsGuest bool
 }
 
 func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool, bool) {

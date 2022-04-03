@@ -17,3 +17,11 @@ func GetIsAdmin(ctx *gin.Context) bool {
 	}
 	return false
 }
+
+func GetIsGuest(ctx *gin.Context) bool {
+	isGuest, exists := ctx.Get("IS_GUEST")
+	if exists {
+		return isGuest.(bool)
+	}
+	return true
+}
