@@ -100,6 +100,8 @@ func (f *JsonFormatter) Format(entry *log.Entry) ([]byte, error) {
 	result["env"] = Env
 
 	requestId := ""
+	var consumerId, traderId uint
+	var isGuest, isAdmin bool
 	if ctx != nil {
 		requestId = requestid.GetRequestIDFromContext(ctx)
 		result["request_id"] = requestId
@@ -113,8 +115,32 @@ func (f *JsonFormatter) Format(entry *log.Entry) ([]byte, error) {
 		}
 		httpRequest["remoteIp"] = ctx.Request.RemoteAddr
 		result["httpRequest"] = httpRequest
+
+		if v, ok := ctx.Get("AUTHENTICATED_CONSUMER_ID"); ok {
+			if authenticatedConsumerId, ok := v.(uint); ok {
+				consumerId = authenticatedConsumerId
+			}
+		}
+
+		if v, ok := ctx.Get("IS_GUEST"); ok {
+			if isGuestR, ok := v.(bool); ok {
+				isGuest = isGuestR
+			}
+		}
+
+		if v, ok := ctx.Get("IS_ADMIN"); ok {
+			if isAdminR, ok := v.(bool); ok {
+				isAdmin = isAdminR
+			}
+		}
+
+		if v, ok := ctx.Get("AUTHENTICATED_TRADER_ID"); ok {
+			if authenticatedTraderId, ok := v.(uint); ok {
+				traderId = authenticatedTraderId
+			}
+		}
 	}
-	result["message"] = fmt.Sprintf("%s [%v:%v:%v - %v]", entry.Message, ServiceName, Env, requestId, Caller(entry.Caller))
+	result["message"] = fmt.Sprintf("%s [%v:%v:%v - %v] [Auth - Consumer: %v (Guest: %v) - Trader: %v (Admin: %v)]", entry.Message, ServiceName, Env, requestId, Caller(entry.Caller), consumerId, isGuest, traderId, isAdmin)
 
 	b := &bytes.Buffer{}
 	encoder := json.NewEncoder(b)

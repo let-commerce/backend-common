@@ -109,7 +109,6 @@ func AuthMiddleware(ctx *gin.Context) {
 			ctx.Set("IS_ADMIN", isAdmin)
 		}
 	}
-	//log.Infof("authenicated_consumer_id = %v, authenticated_trader_id = %v, is_guest = %v ,is_admin = %v", consumerId, traderId, isGuest, isAdmin)
 	ctx.Next()
 }
 
