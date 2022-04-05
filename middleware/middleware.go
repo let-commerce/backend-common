@@ -87,7 +87,7 @@ func readBody(reader io.Reader) string {
 func RecoveryHandler(c *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
-			goErr := errors.Wrap(err, 0)
+			goErr := errors.Wrap(err, 2)
 			log.Errorf("Got panic while handling [%v] %v: %+v, stack: \n%s", c.Request.Method, c.Request.RequestURI, err, Caller(goErr.StackFrames(), 0))
 
 			c.JSON(http.StatusInternalServerError, response.ErrorResponse{Message: "got panic", Error: fmt.Sprintf("%v", err)})

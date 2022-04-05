@@ -145,10 +145,10 @@ func (f *JsonFormatter) Format(entry *log.Entry) ([]byte, error) {
 		consumer = fmt.Sprintf("ConsumerId:%v (Guest:%v)", consumerId, isGuest)
 	}
 	if traderId != 0 {
-		trader = fmt.Sprintf("TraderId:%v (Admin:%v)", traderId, isAdmin)
+		trader = fmt.Sprintf(" TraderId:%v (Admin:%v)", traderId, isAdmin)
 	}
 	if consumerId != 0 || traderId != 0 {
-		authInfo = fmt.Sprintf(" [%v %v]", consumer, trader)
+		authInfo = fmt.Sprintf(" [%v%v]", consumer, trader)
 	}
 
 	result["message"] = fmt.Sprintf("%s [%v:%v:%v - %v]%v", entry.Message, ServiceName, Env, requestId, Caller(entry.Caller), authInfo)
