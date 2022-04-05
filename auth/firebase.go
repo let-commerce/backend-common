@@ -58,7 +58,17 @@ func AuthMiddleware(ctx *gin.Context) {
 	}
 
 	ctx.Set("FIREBASE_USER_UID", uid)
+	ctx.Next()
+}
 
+// RequireAuth : to verify all authorized operations, there exist a consumer id
+func RequireAuth(ctx *gin.Context) {
+	uidValue, exists := ctx.Get("FIREBASE_USER_UID")
+	if !exists {
+		return
+	}
+	uid := uidValue.(string)
+	firebaseAuth := ctx.MustGet("firebaseAuth").(*auth.Client)
 	var consumerCached, traderCached, isAdmin, isGuest bool
 	var consumerId, traderId uint
 
