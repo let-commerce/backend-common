@@ -23,7 +23,21 @@ var (
 	UserIdToConsumerCache     map[string]GetConsumerResult
 	UserIdToTraderCache       map[string]GetTraderResult
 	TokenCache                *cache.Cache // Keeps token stored for 20 minutes
+	BackofficeTokenCache      *cache.Cache // Keeps token stored for 20 minutes
 )
+
+func Init() {
+	TokenCache = cache.New(20*time.Minute, 20*time.Minute)
+	BackofficeTokenCache = cache.New(20*time.Minute, 20*time.Minute)
+	UserIdToConsumerCache = map[string]GetConsumerResult{}
+	UserIdToTraderCache = map[string]GetTraderResult{}
+}
+
+func SetupAllFirebase(accountKeyPath string, backofficeKeyPath string) (consumersFirebase *auth.Client, backofficeFirebase *auth.Client) {
+	consumersFirebase = SetupFirebase(accountKeyPath)
+	backofficeFirebase = SetupFirebase(backofficeKeyPath)
+	return consumersFirebase, backofficeFirebase
+}
 
 func SetupFirebase(accountKeyPath string) *auth.Client {
 	serviceAccountKeyFilePath, err := filepath.Abs(accountKeyPath)
@@ -42,7 +56,6 @@ func SetupFirebase(accountKeyPath string) *auth.Client {
 	if err != nil {
 		log.Panicf("Firebase Auth load error: %v", err)
 	}
-	TokenCache = cache.New(20*time.Minute, 20*time.Minute)
 
 	return auth
 }
@@ -50,9 +63,19 @@ func SetupFirebase(accountKeyPath string) *auth.Client {
 // AuthMiddleware : to verify all authorized operations
 func AuthMiddleware(ctx *gin.Context) {
 	firebaseAuth := ctx.MustGet("firebaseAuth").(*auth.Client)
+	backofficeFirebaseAuth := ctx.MustGet("backofficeFirebaseAuth").(*auth.Client)
 	authorizationToken := ctx.GetHeader("Authorization")
+	requestContext := ctx.GetHeader("RequestContext")
 	idToken := strings.TrimSpace(strings.Replace(authorizationToken, "Bearer", "", 1))
-	uid, done := getUid(ctx, idToken, firebaseAuth)
+
+	var uid string
+	var done bool
+
+	if requestContext == "Backoffice" {
+		uid, done = getUid(ctx, idToken, backofficeFirebaseAuth, BackofficeTokenCache)
+	} else {
+		uid, done = getUid(ctx, idToken, firebaseAuth, TokenCache)
+	}
 	if uid == "" || done {
 		return
 	}
@@ -69,38 +92,44 @@ func RequireAuth(ctx *gin.Context) {
 	}
 	uid := uidValue.(string)
 	firebaseAuth := ctx.MustGet("firebaseAuth").(*auth.Client)
-	var consumerCached, traderCached, isAdmin, isGuest bool
+	backofficeFirebaseAuth := ctx.MustGet("backofficeFirebaseAuth").(*auth.Client)
+	requestContext := ctx.GetHeader("RequestContext")
+
+	var consumerCached, traderCached, isAdmin, isGuest, success bool
+	isGuest = true
 	var consumerId, traderId uint
-
-	if cacheConsumer, ok := UserIdToConsumerCache[uid]; ok {
-		if cacheConsumer.ID != 0 {
-			consumerId = cacheConsumer.ID
-			isGuest = cacheConsumer.IsGuest
-		}
-		consumerCached = ok
-	}
-
-	if cacheTrader, ok := UserIdToTraderCache[uid]; ok {
-		if cacheTrader.ID != 0 {
-			traderId = cacheTrader.ID
-			isAdmin = cacheTrader.IsAdmin
-		}
-		traderCached = ok
-	}
-
-	var success bool
 	var email string
-	if !consumerCached || !traderCached {
-		email, success = tryGetUserEmail(ctx, firebaseAuth, uid)
-		if !success {
-			return
+
+	if requestContext != "Backoffice" {
+		if cacheConsumer, ok := UserIdToConsumerCache[uid]; ok {
+			if cacheConsumer.ID != 0 {
+				consumerId = cacheConsumer.ID
+				isGuest = cacheConsumer.IsGuest
+			}
+			consumerCached = ok
 		}
-	}
-	if !consumerCached {
-		consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
-	}
-	if !traderCached {
-		traderId, isAdmin, success = tryExtractTraderIdFromUid(ctx, email, uid)
+		if !consumerCached {
+			email, success = tryGetUserEmail(ctx, firebaseAuth, uid)
+			if !success {
+				return
+			}
+			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
+		}
+	} else {
+		if cacheTrader, ok := UserIdToTraderCache[uid]; ok {
+			if cacheTrader.ID != 0 {
+				traderId = cacheTrader.ID
+				isAdmin = cacheTrader.IsAdmin
+			}
+			traderCached = ok
+		}
+		if !traderCached {
+			email, success = tryGetUserEmail(ctx, backofficeFirebaseAuth, uid)
+			if !success {
+				return
+			}
+			traderId, isAdmin, success = tryExtractTraderIdFromUid(ctx, email, uid)
+		}
 	}
 
 	if consumerId == 0 && traderId == 0 {
@@ -115,9 +144,7 @@ func RequireAuth(ctx *gin.Context) {
 	}
 	if traderId != 0 {
 		ctx.Set("AUTHENTICATED_TRADER_ID", traderId)
-		if isAdmin {
-			ctx.Set("IS_ADMIN", isAdmin)
-		}
+		ctx.Set("IS_ADMIN", isAdmin)
 	}
 	ctx.Next()
 }
@@ -134,13 +161,13 @@ func RequireAdminAuth(ctx *gin.Context) {
 	ctx.Next()
 }
 
-func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string, bool) {
+func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensCache *cache.Cache) (string, bool) {
 	if idToken == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - No id token found for this request (%v)", env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
 		return "", true
 	}
-	if uid, found := TokenCache.Get(idToken); found {
+	if uid, found := tokensCache.Get(idToken); found {
 		return uid.(string), false
 	}
 	//verify token
@@ -150,9 +177,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string
 		ctx.Abort()
 		return "", true
 	}
-	TokenCache.Set(idToken, token.UID, cache.DefaultExpiration)
-	UserIdToConsumerCache = map[string]GetConsumerResult{}
-	UserIdToTraderCache = map[string]GetTraderResult{}
+	tokensCache.Set(idToken, token.UID, cache.DefaultExpiration)
 	return token.UID, false
 }
 
