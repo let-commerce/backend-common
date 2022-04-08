@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
+	"github.com/let-commerce/backend-common/env"
 	"github.com/let-commerce/backend-common/logs"
 	"github.com/let-commerce/backend-common/response"
 	log "github.com/sirupsen/logrus"
@@ -87,8 +88,8 @@ func readBody(reader io.Reader) string {
 func RecoveryHandler(c *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
-			goErr := errors.Wrap(err, 2)
-			log.Errorf("Got panic while handling [%v] %v: %+v, stack: \n%s", c.Request.Method, c.Request.RequestURI, err, Caller(goErr.StackFrames(), 0))
+			goErr := errors.Wrap(err, 3)
+			log.Errorf("Got panic while handling [%v] %v: %+v, stack (service: %v): \n%s", c.Request.Method, c.Request.RequestURI, err, env.GetEnvVar("SERVICE_NAME"), Caller(goErr.StackFrames(), 0))
 
 			c.JSON(http.StatusInternalServerError, response.ErrorResponse{Message: "got panic", Error: fmt.Sprintf("%v", err)})
 		}
