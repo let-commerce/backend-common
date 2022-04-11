@@ -89,7 +89,7 @@ func RecoveryHandler(c *gin.Context) {
 	defer func() {
 		if err := recover(); err != nil {
 			goErr := errors.Wrap(err, 3)
-			log.Errorf("Got panic while handling [%v] %v: %+v, stack (service: %v): \n%s", c.Request.Method, c.Request.RequestURI, err, env.GetEnvVar("SERVICE_NAME"), Caller(goErr.StackFrames(), 0))
+			log.Errorf("Got panic while handling [%v] %v: %+v, Stack:\n(Service: %v)\n%s", c.Request.Method, c.Request.RequestURI, err, env.GetEnvVar("SERVICE_NAME"), Caller(goErr.StackFrames(), 0))
 
 			c.JSON(http.StatusInternalServerError, response.ErrorResponse{Message: "got panic", Error: fmt.Sprintf("%v", err)})
 		}
