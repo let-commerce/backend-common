@@ -72,7 +72,11 @@ func LogAllResponses(ctx *gin.Context) {
 		} else if statusCode == 401 {
 			log.Warnf("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
 		} else {
-			log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+			if ctx.Request.Method == "GET" { // In order to prevent huge log files, logging only status for GET requests, if there was no error.
+				log.Infof("Finished handling request for URI: [%v] %v - Response code is: [%v].", ctx.Request.Method, ctx.Request.RequestURI, statusCode)
+			} else {
+				log.Infof("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
+			}
 		}
 	}
 }
