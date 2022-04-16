@@ -33,7 +33,10 @@ func LogErrorResponse(ctx *gin.Context) {
 	ctx.Writer = blw
 	ctx.Next()
 	statusCode := ctx.Writer.Status()
-	if statusCode >= 400 {
+	if statusCode >= 402 {
+		// Record the response body if there was an error
+		log.Errorf("Returning error status code [%v] for request: [%v] %v - Response Body is: %v.", statusCode, ctx.Request.Method, ctx.Request.RequestURI, blw.body.String())
+	} else if statusCode >= 400 {
 		// Record the response body if there was an error
 		log.Warnf("Returning error status code [%v] for request: [%v] %v - Response Body is: %v.", statusCode, ctx.Request.Method, ctx.Request.RequestURI, blw.body.String())
 	}
