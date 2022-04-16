@@ -67,9 +67,9 @@ func LogAllResponses(ctx *gin.Context) {
 	ctx.Next()
 	statusCode := ctx.Writer.Status()
 	if !strings.Contains(ctx.Request.RequestURI, "swagger") {
-		if statusCode >= 400 && statusCode != 401 {
+		if statusCode >= 402 {
 			log.Errorf("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
-		} else if statusCode == 401 {
+		} else if statusCode == 400 || statusCode == 401 {
 			log.Warnf("Finished handling request for URI: [%v] %v - Response is: [%v] %v.", ctx.Request.Method, ctx.Request.RequestURI, statusCode, blw.body.String())
 		} else {
 			if ctx.Request.Method == "GET" { // In order to prevent huge log files, logging only status for GET requests, if there was no error.
