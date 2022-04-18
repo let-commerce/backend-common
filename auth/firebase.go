@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/let-commerce/backend-common/env"
+	"github.com/orcaman/concurrent-map"
 	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
@@ -20,17 +21,17 @@ import (
 var (
 	FirebaseAuthClient        *auth.Client
 	TradersFirebaseAuthClient *auth.Client
-	UserIdToConsumerCache     map[string]GetConsumerResult
-	UserIdToTraderCache       map[string]GetTraderResult
-	TokenCache                *cache.Cache // Keeps token stored for 20 minutes
-	BackofficeTokenCache      *cache.Cache // Keeps token stored for 20 minutes
+	UserIdToConsumerCache     cmap.ConcurrentMap //using concurrent map to prevent thread safe issues -  map[string]GetConsumerResult
+	UserIdToTraderCache       cmap.ConcurrentMap //using concurrent map to prevent thread safe issues - map[string]GetTraderResult
+	TokenCache                *cache.Cache       // Keeps token stored for 20 minutes
+	BackofficeTokenCache      *cache.Cache       // Keeps token stored for 20 minutes
 )
 
 func Init() {
 	TokenCache = cache.New(20*time.Minute, 20*time.Minute)
 	BackofficeTokenCache = cache.New(20*time.Minute, 20*time.Minute)
-	UserIdToConsumerCache = map[string]GetConsumerResult{}
-	UserIdToTraderCache = map[string]GetTraderResult{}
+	UserIdToConsumerCache = cmap.New() //using concurrent map to prevent thread safe issues
+	UserIdToTraderCache = cmap.New()   //using concurrent map to prevent thread safe issues
 }
 
 func SetupAllFirebase(accountKeyPath string, backofficeKeyPath string) (consumersFirebase *auth.Client, backofficeFirebase *auth.Client) {
@@ -101,7 +102,8 @@ func RequireAuth(ctx *gin.Context) {
 	var email string
 
 	if requestContext != "Backoffice" {
-		if cacheConsumer, ok := UserIdToConsumerCache[uid]; ok {
+		if cacheConsumerValue, ok := UserIdToConsumerCache.Get(uid); ok {
+			cacheConsumer := cacheConsumerValue.(GetConsumerResult)
 			if cacheConsumer.ID != 0 {
 				consumerId = cacheConsumer.ID
 				isGuest = cacheConsumer.IsGuest
@@ -116,7 +118,8 @@ func RequireAuth(ctx *gin.Context) {
 			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
 		}
 	} else {
-		if cacheTrader, ok := UserIdToTraderCache[uid]; ok {
+		if cacheTraderValue, ok := UserIdToTraderCache.Get(uid); ok {
+			cacheTrader := cacheTraderValue.(GetTraderResult)
 			if cacheTrader.ID != 0 {
 				traderId = cacheTrader.ID
 				isAdmin = cacheTrader.IsAdmin
@@ -184,7 +187,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensC
 func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (id uint, isGuest bool, success bool) {
 	var result GetConsumerResult
 	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_guest FROM consumers.consumers WHERE email = ?", email).Scan(&result).Error
-	UserIdToConsumerCache[uid] = result
+	UserIdToConsumerCache.Set(uid, result)
 	if err2 != nil || result.ID == 0 {
 		return 0, true, false
 	}
@@ -204,7 +207,7 @@ type GetConsumerResult struct {
 func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool, bool) {
 	var result GetTraderResult
 	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_admin FROM traders.traders WHERE email = ?", email).Scan(&result).Error
-	UserIdToTraderCache[uid] = result
+	UserIdToTraderCache.Set(uid, result)
 
 	if err2 != nil || result.ID == 0 {
 		return 0, false, false
