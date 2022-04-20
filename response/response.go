@@ -34,3 +34,7 @@ func NewErrorResponseF(err error, format string, a ...interface{}) ErrorResponse
 func NewErrorResponse(message string, err error) ErrorResponse {
 	return ErrorResponse{Message: message, Error: err.Error()}
 }
+
+func NewErrorMessageResponse(message string) ErrorResponse {
+	return ErrorResponse{Message: message}
+}

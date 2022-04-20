@@ -23,12 +23,12 @@ func ValidateAuthorized(ctx *gin.Context, consumerId uint, allowGuests bool) boo
 	}
 	if authenticatedConsumerId == 0 || consumerId != authenticatedConsumerId {
 		log.Errorf("got unauthenticated consumer id! consumer id: %v authenticatedConsumerId: %v isAdmin: %v", consumerId, authenticatedConsumerId, isAdmin)
-		ctx.JSON(http.StatusUnauthorized, response.NewErrorResponse("Unauthenticated", nil))
+		ctx.JSON(http.StatusUnauthorized, response.NewErrorMessageResponse("Unauthenticated"))
 		return false
 	}
 	if !allowGuests && auth.GetIsGuest(ctx) {
 		log.Errorf("unauthorized guest operation! consumer id: %v authenticatedConsumerId: %v isAdmin: %v", consumerId, authenticatedConsumerId, isAdmin)
-		ctx.JSON(http.StatusUnauthorized, response.NewErrorResponse("Unauthorized", nil))
+		ctx.JSON(http.StatusUnauthorized, response.NewErrorMessageResponse("Unauthorized"))
 		return false
 	}
 	return true
