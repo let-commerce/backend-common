@@ -142,7 +142,7 @@ func RequireAuth(ctx *gin.Context) {
 		return
 	}
 
-	log.Info("uid: %v consumerId: %v, isCache: %v", uid, consumerId, consumerCached)
+	log.Infof("uid: %v consumerId: %v, isCache: %v", uid, consumerId, consumerCached)
 	if consumerId != 0 {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
 		ctx.Set("IS_GUEST", isGuest)
@@ -177,7 +177,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensC
 		return uid.(string), false
 	}
 	//verify token
-	token, err := firebaseAuth.VerifyIDToken(context.Background(), idToken)
+	token, err := firebaseAuth.VerifyIDToken(ctx, idToken)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - Token not verified, err: %v (%v)", err, env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
@@ -220,7 +220,7 @@ func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (uint
 }
 
 func tryGetUserEmail(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (string, bool) {
-	userRecord, err := firebaseAuth.GetUser(context.Background(), uid)
+	userRecord, err := firebaseAuth.GetUser(ctx, uid)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - User record not found: %v, (%v)", err, env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
