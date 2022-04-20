@@ -220,12 +220,13 @@ func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (uint
 }
 
 func tryGetUserEmail(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (string, bool) {
-	userRecord, err := firebaseAuth.GetUser(context.Background(), uid)
+	userRecord, err := firebaseAuth.GetUser(ctx, uid)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Authentication Error - User record not found: %v, (%v)", err, env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
 		return "", false
 	}
 	ctx.Set("FIREBASE_USER_EMAIL", userRecord.Email)
+	log.Infof("in tryGetUserEmail. email: %v", userRecord.Email)
 	return userRecord.Email, true
 }
