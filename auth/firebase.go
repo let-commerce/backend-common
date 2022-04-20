@@ -177,7 +177,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensC
 		return uid.(string), false
 	}
 	//verify token
-	token, err := firebaseAuth.VerifyIDToken(ctx, idToken)
+	token, err := firebaseAuth.VerifyIDToken(context.Background(), idToken)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - Token not verified, err: %v (%v)", err, env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
