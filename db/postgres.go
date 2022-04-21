@@ -2,6 +2,7 @@ package db
 
 import (
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
+	"github.com/let-commerce/backend-common/env"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -13,9 +14,10 @@ var (
 )
 
 // ConnectAndMigrate connects to PostgresDB
-func ConnectAndMigrate(dsn string, schema string, useCloudSql bool, dst ...interface{}) *gorm.DB {
-	connectToPublicSchema(dst, dsn, useCloudSql)
-	db := connectToServiceSchema(dst, schema, dsn, useCloudSql)
+func ConnectAndMigrate(dsn string, schema string, shouldMigrate bool, dst ...interface{}) *gorm.DB {
+	useCloudSql := env.MustGetEnvVar("ENV") == "prod"
+	connectToPublicSchema(dst, dsn, useCloudSql, shouldMigrate)
+	db := connectToServiceSchema(dst, schema, dsn, useCloudSql, shouldMigrate)
 
 	log.Info("Postgres connected successfully.")
 
@@ -23,7 +25,7 @@ func ConnectAndMigrate(dsn string, schema string, useCloudSql bool, dst ...inter
 	return db
 }
 
-func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, useCloudSql bool) *gorm.DB {
+func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, useCloudSql, shouldMigrate bool) *gorm.DB {
 	log.Infof("Start Connecting to Postgres DB, schema: %v", schemaName)
 	driverName := ""
 	if useCloudSql {
@@ -43,15 +45,17 @@ func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, us
 
 	db.Exec("CREATE SCHEMA IF NOT EXISTS " + schemaName)
 
-	log.Info("Start Auto Migrating on service schema")
-	err = db.AutoMigrate(dst...)
-	if err != nil {
-		log.Panicf("Failed to auto migrate on service schema. eror is: %v", err.Error())
+	if shouldMigrate {
+		log.Info("Start Auto Migrating on service schema")
+		err = db.AutoMigrate(dst...)
+		if err != nil {
+			log.Panicf("Failed to auto migrate on service schema. eror is: %v", err.Error())
+		}
 	}
 	return db
 }
 
-func connectToPublicSchema(dst []interface{}, dsn string, useCloudSql bool) {
+func connectToPublicSchema(dst []interface{}, dsn string, useCloudSql, shouldMigrate bool) {
 	log.Infof("Start Connecting to Postgres DB, public schema")
 	driverName := ""
 	if useCloudSql {
@@ -66,9 +70,11 @@ func connectToPublicSchema(dst []interface{}, dsn string, useCloudSql bool) {
 		log.Panicf("Can't connect to postgres DB on public schema. error is: %v", err.Error())
 	}
 
-	log.Info("Start Auto Migrating to public schema")
-	err = db.AutoMigrate(dst...)
-	if err != nil {
-		log.Panicf("Failed to auto migrate DB on public schema. error is: %v", err.Error())
+	if shouldMigrate {
+		log.Info("Start Auto Migrating to public schema")
+		err = db.AutoMigrate(dst...)
+		if err != nil {
+			log.Panicf("Failed to auto migrate DB on public schema. error is: %v", err.Error())
+		}
 	}
 }
