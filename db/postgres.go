@@ -3,6 +3,7 @@ package db
 import (
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
 	"github.com/let-commerce/backend-common/env"
+	"github.com/let-commerce/backend-common/redis"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -13,11 +14,21 @@ var (
 	DB *gorm.DB
 )
 
-// ConnectAndMigrate connects to PostgresDB
-func ConnectAndMigrate(dsn string, schema string, shouldMigrate bool, dst ...interface{}) *gorm.DB {
+// ConnectAndMigrateIfNeeded connects to PostgresDB, and migrate if no migration done for the current commit sha already (according to redis)
+func ConnectAndMigrateIfNeeded(dsn string, serviceName string, commitSHA string, dst ...interface{}) *gorm.DB {
 	useCloudSql := env.MustGetEnvVar("ENV") == "prod"
+
+	conn := redis.RedisConnect()
+	defer conn.Close()
+
+	redisLatestSha := redis.GetStringValue(conn, serviceName+"_latest_migrate_sha") // check if migration already done for current commit SHa
+	shouldMigrate := redisLatestSha != commitSHA
+	log.Infof("in ConnectAndMigrateIfNeeded for %v. shouldMigrate: %v (commit sha: %v, redis sha: %v)", serviceName, shouldMigrate, commitSHA, redisLatestSha)
+
 	connectToPublicSchema(dst, dsn, useCloudSql, shouldMigrate)
-	db := connectToServiceSchema(dst, schema, dsn, useCloudSql, shouldMigrate)
+	db := connectToServiceSchema(dst, serviceName, dsn, useCloudSql, shouldMigrate)
+
+	redis.SetValue(conn, serviceName+"_latest_migrate_sha", commitSHA) // update the latest commit sha in redis
 
 	log.Info("Postgres connected successfully.")
 
@@ -26,7 +37,7 @@ func ConnectAndMigrate(dsn string, schema string, shouldMigrate bool, dst ...int
 }
 
 func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, useCloudSql, shouldMigrate bool) *gorm.DB {
-	log.Infof("Start Connecting to Postgres DB, schema: %v", schemaName)
+	log.Infof("Start Connecting to Postgres DB, schema: %v . Should migrate: %v", schemaName, shouldMigrate)
 	driverName := ""
 	if useCloudSql {
 		driverName = "cloudsqlpostgres"
@@ -56,7 +67,7 @@ func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, us
 }
 
 func connectToPublicSchema(dst []interface{}, dsn string, useCloudSql, shouldMigrate bool) {
-	log.Infof("Start Connecting to Postgres DB, public schema")
+	log.Infof("Start Connecting to Postgres DB, public schema. Should migrate: %v", shouldMigrate)
 	driverName := ""
 	if useCloudSql {
 		driverName = "cloudsqlpostgres"
