@@ -23,6 +23,9 @@ func SetValue(conn redis.Conn, key string, value interface{}) {
 }
 
 func GetStringValue(conn redis.Conn, key string) string {
+	if !Exists(conn, key) {
+		return ""
+	}
 	value, err := redis.String(conn.Do("GET", key))
 	if err != nil {
 		panic(err)
