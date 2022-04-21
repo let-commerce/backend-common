@@ -3,6 +3,7 @@ package redis
 import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/let-commerce/backend-common/env"
+	log "github.com/sirupsen/logrus"
 )
 
 // for more operations: https://lzone.de/cheat-sheet/Redis
@@ -10,7 +11,7 @@ import (
 func RedisConnect() redis.Conn {
 	conn, err := redis.Dial("tcp", env.MustGetEnvVar("REDIS_URL"))
 	if err != nil {
-		panic(err)
+		log.Panicf("Can't connect to redis client: %v", err)
 	}
 	return conn
 }
@@ -18,7 +19,7 @@ func RedisConnect() redis.Conn {
 func SetValue(conn redis.Conn, key string, value interface{}) {
 	_, err := conn.Do("SET", key, value)
 	if err != nil {
-		panic(err)
+		log.Panicf("Got error while setting redis value: %v", err)
 	}
 }
 
@@ -28,7 +29,7 @@ func GetStringValue(conn redis.Conn, key string) string {
 	}
 	value, err := redis.String(conn.Do("GET", key))
 	if err != nil {
-		panic(err)
+		log.Panicf("Got error while getting redis value: %v", err)
 	}
 	return value
 }
@@ -36,14 +37,14 @@ func GetStringValue(conn redis.Conn, key string) string {
 func DeleteKey(conn redis.Conn, key string) {
 	_, err := conn.Do("DEL", key)
 	if err != nil {
-		panic(err)
+		log.Panicf("Got error while deleting redis key: %v", err)
 	}
 }
 
 func Exists(conn redis.Conn, key string) bool {
 	value, err := redis.Bool(conn.Do("EXISTS", key))
 	if err != nil {
-		panic(err)
+		log.Panicf("Got error while checking if key exists: %v", err)
 	}
 	return value
 }
@@ -51,7 +52,7 @@ func Exists(conn redis.Conn, key string) bool {
 func SetTTL(conn redis.Conn, key string, secondsTTL float32) {
 	_, err := conn.Do("EXPIRE", key, secondsTTL)
 	if err != nil {
-		panic(err)
+		log.Panicf("Got error while setting ttl: %v", err)
 	}
 }
 

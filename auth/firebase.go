@@ -116,7 +116,6 @@ func RequireAuth(ctx *gin.Context) {
 				return
 			}
 			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
-			log.Infof("consumer not cached. uid:%v email: %v consumer id: %v", uid, email, consumerId)
 		}
 	} else {
 		if cacheTraderValue, ok := UserIdToTraderCache.Get(uid); ok {
@@ -142,7 +141,6 @@ func RequireAuth(ctx *gin.Context) {
 		return
 	}
 
-	log.Infof("uid: %v consumerId: %v, isCache: %v", uid, consumerId, consumerCached)
 	if consumerId != 0 {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
 		ctx.Set("IS_GUEST", isGuest)
@@ -173,7 +171,6 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensC
 		return "", true
 	}
 	if uid, found := tokensCache.Get(idToken); found {
-		log.Infof("found token in cache. uid: %v.", uid)
 		return uid.(string), false
 	}
 	//verify token
@@ -184,7 +181,6 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensC
 		return "", true
 	}
 	tokensCache.Set(idToken, token.UID, cache.DefaultExpiration)
-	log.Infof("got token from server. uid: %v.", token.UID)
 	return token.UID, false
 }
 
@@ -227,6 +223,5 @@ func tryGetUserEmail(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (s
 		return "", false
 	}
 	ctx.Set("FIREBASE_USER_EMAIL", userRecord.Email)
-	log.Infof("in tryGetUserEmail. email: %v", userRecord.Email)
 	return userRecord.Email, true
 }

@@ -15,7 +15,8 @@ var (
 )
 
 // ConnectAndMigrateIfNeeded connects to PostgresDB, and migrate if no migration done for the current commit sha already (according to redis)
-func ConnectAndMigrateIfNeeded(dsn string, serviceName string, commitSHA string, dst ...interface{}) *gorm.DB {
+func ConnectAndMigrateIfNeeded(serviceName string, commitSHA string, dst ...interface{}) *gorm.DB {
+	dsn := env.MustGetEnvVar("DATABASE_DSN")
 	useCloudSql := env.MustGetEnvVar("ENV") == "prod"
 
 	conn := redis.RedisConnect()
@@ -23,7 +24,6 @@ func ConnectAndMigrateIfNeeded(dsn string, serviceName string, commitSHA string,
 
 	redisLatestSha := redis.GetStringValue(conn, serviceName+"_latest_migrate_sha") // check if migration already done for current commit SHa
 	shouldMigrate := redisLatestSha != commitSHA
-	log.Infof("in ConnectAndMigrateIfNeeded for %v. shouldMigrate: %v (commit sha: %v, redis sha: %v)", serviceName, shouldMigrate, commitSHA, redisLatestSha)
 
 	connectToPublicSchema(dst, dsn, useCloudSql, shouldMigrate)
 	db := connectToServiceSchema(dst, serviceName, dsn, useCloudSql, shouldMigrate)
@@ -37,7 +37,7 @@ func ConnectAndMigrateIfNeeded(dsn string, serviceName string, commitSHA string,
 }
 
 func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, useCloudSql, shouldMigrate bool) *gorm.DB {
-	log.Infof("Start Connecting to Postgres DB, schema: %v . Should migrate: %v", schemaName, shouldMigrate)
+	log.Infof("Start Connecting to Postgres DB, schema: %v. Should migrate: %v", schemaName, shouldMigrate)
 	driverName := ""
 	if useCloudSql {
 		driverName = "cloudsqlpostgres"
@@ -54,9 +54,9 @@ func connectToServiceSchema(dst []interface{}, schemaName string, dsn string, us
 		log.Panicf("Can't connect to postgres DB on service scehma. error is: %v", err.Error())
 	}
 
-	db.Exec("CREATE SCHEMA IF NOT EXISTS " + schemaName)
-
 	if shouldMigrate {
+		db.Exec("CREATE SCHEMA IF NOT EXISTS " + schemaName)
+
 		log.Info("Start Auto Migrating on service schema")
 		err = db.AutoMigrate(dst...)
 		if err != nil {
