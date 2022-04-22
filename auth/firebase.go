@@ -8,14 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/let-commerce/backend-common/env"
 	"github.com/orcaman/concurrent-map"
-	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	"gorm.io/gorm"
 	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 var (
@@ -23,13 +21,9 @@ var (
 	TradersFirebaseAuthClient *auth.Client
 	UserIdToConsumerCache     cmap.ConcurrentMap //using concurrent map to prevent thread safe issues -  map[string]GetConsumerResult
 	UserIdToTraderCache       cmap.ConcurrentMap //using concurrent map to prevent thread safe issues - map[string]GetTraderResult
-	TokenCache                *cache.Cache       // Keeps token stored for 20 minutes
-	BackofficeTokenCache      *cache.Cache       // Keeps token stored for 20 minutes
 )
 
 func Init() {
-	TokenCache = cache.New(20*time.Minute, 20*time.Minute)
-	BackofficeTokenCache = cache.New(20*time.Minute, 20*time.Minute)
 	UserIdToConsumerCache = cmap.New() //using concurrent map to prevent thread safe issues
 	UserIdToTraderCache = cmap.New()   //using concurrent map to prevent thread safe issues
 }
@@ -73,9 +67,9 @@ func AuthMiddleware(ctx *gin.Context) {
 	var done bool
 
 	if requestContext == "Backoffice" {
-		uid, done = getUid(ctx, idToken, backofficeFirebaseAuth, BackofficeTokenCache)
+		uid, done = getUid(ctx, idToken, backofficeFirebaseAuth)
 	} else {
-		uid, done = getUid(ctx, idToken, firebaseAuth, TokenCache)
+		uid, done = getUid(ctx, idToken, firebaseAuth)
 	}
 	if uid == "" || done {
 		return
@@ -116,6 +110,7 @@ func RequireAuth(ctx *gin.Context) {
 				return
 			}
 			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
+			log.Infof("consumer not cached. uid:%v email: %v consumer id: %v", uid, email, consumerId)
 		}
 	} else {
 		if cacheTraderValue, ok := UserIdToTraderCache.Get(uid); ok {
@@ -141,6 +136,7 @@ func RequireAuth(ctx *gin.Context) {
 		return
 	}
 
+	log.Infof("uid: %v consumerId: %v, isCache: %v", uid, consumerId, consumerCached)
 	if consumerId != 0 {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
 		ctx.Set("IS_GUEST", isGuest)
@@ -164,14 +160,11 @@ func RequireAdminAuth(ctx *gin.Context) {
 	ctx.Next()
 }
 
-func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensCache *cache.Cache) (string, bool) {
+func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string, bool) {
 	if idToken == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - No id token found for this request (%v)", env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
 		return "", true
-	}
-	if uid, found := tokensCache.Get(idToken); found {
-		return uid.(string), false
 	}
 	//verify token
 	token, err := firebaseAuth.VerifyIDToken(ctx, idToken)
@@ -180,7 +173,7 @@ func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client, tokensC
 		ctx.Abort()
 		return "", true
 	}
-	tokensCache.Set(idToken, token.UID, cache.DefaultExpiration)
+	log.Infof("got token from server. uid: %v. idToken: %v", token.UID, idToken)
 	return token.UID, false
 }
 
@@ -223,5 +216,6 @@ func tryGetUserEmail(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (s
 		return "", false
 	}
 	ctx.Set("FIREBASE_USER_EMAIL", userRecord.Email)
+	log.Infof("in tryGetUserEmail. email: %v", userRecord.Email)
 	return userRecord.Email, true
 }
