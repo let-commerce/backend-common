@@ -61,15 +61,15 @@ func AuthMiddleware(ctx *gin.Context) {
 	backofficeFirebaseAuth := ctx.MustGet("backofficeFirebaseAuth").(*auth.Client)
 	authorizationToken := ctx.GetHeader("Authorization")
 	requestContext := ctx.GetHeader("RequestContext")
-	idToken := strings.TrimSpace(strings.Replace(authorizationToken, "Bearer", "", 1))
+	jwtToken := strings.TrimSpace(strings.Replace(authorizationToken, "Bearer", "", 1))
 
 	var uid string
 	var done bool
 
 	if requestContext == "Backoffice" {
-		uid, done = getUid(ctx, idToken, backofficeFirebaseAuth)
+		uid, done = getUid(ctx, jwtToken, backofficeFirebaseAuth)
 	} else {
-		uid, done = getUid(ctx, idToken, firebaseAuth)
+		uid, done = getUid(ctx, jwtToken, firebaseAuth)
 	}
 	if uid == "" || done {
 		return
@@ -110,7 +110,7 @@ func RequireAuth(ctx *gin.Context) {
 				return
 			}
 			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
-			log.Infof("consumer not cached. uid:%v email: %v consumer id: %v", uid, email, consumerId)
+			log.Infof("consumer not cached. uid: %v email: %v consumer id: %v", uid, email, consumerId)
 		}
 	} else {
 		if cacheTraderValue, ok := UserIdToTraderCache.Get(uid); ok {
@@ -160,20 +160,20 @@ func RequireAdminAuth(ctx *gin.Context) {
 	ctx.Next()
 }
 
-func getUid(ctx *gin.Context, idToken string, firebaseAuth *auth.Client) (string, bool) {
-	if idToken == "" {
+func getUid(ctx *gin.Context, jwtToken string, firebaseAuth *auth.Client) (string, bool) {
+	if jwtToken == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - No id token found for this request (%v)", env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
 		return "", true
 	}
 	//verify token
-	token, err := firebaseAuth.VerifyIDToken(ctx, idToken)
+	token, err := firebaseAuth.VerifyIDToken(ctx, jwtToken)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error - Token not verified, err: %v (%v)", err, env.GetEnvVar("SERVICE_NAME"))})
 		ctx.Abort()
 		return "", true
 	}
-	log.Infof("got token from server. uid: %v. idToken: %v", token.UID, idToken)
+	log.Infof("got token from server. uid: %v. jwtToken: %v", token.UID, jwtToken)
 	return token.UID, false
 }
 
