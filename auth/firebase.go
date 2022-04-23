@@ -110,7 +110,6 @@ func RequireAuth(ctx *gin.Context) {
 				return
 			}
 			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
-			log.Infof("consumer not cached. uid: %v email: %v consumer id: %v", uid, email, consumerId)
 		}
 	} else {
 		if cacheTraderValue, ok := UserIdToTraderCache.Get(uid); ok {
@@ -173,7 +172,6 @@ func getUid(ctx *gin.Context, jwtToken string, firebaseAuth *auth.Client) (strin
 		ctx.Abort()
 		return "", true
 	}
-	log.Infof("got token from server. uid: %v. jwtToken: %v", token.UID, jwtToken)
 	return token.UID, false
 }
 
@@ -216,6 +214,5 @@ func tryGetUserEmail(ctx *gin.Context, firebaseAuth *auth.Client, uid string) (s
 		return "", false
 	}
 	ctx.Set("FIREBASE_USER_EMAIL", userRecord.Email)
-	log.Infof("in tryGetUserEmail. email: %v", userRecord.Email)
 	return userRecord.Email, true
 }
