@@ -135,7 +135,6 @@ func RequireAuth(ctx *gin.Context) {
 		return
 	}
 
-	log.Infof("uid: %v consumerId: %v, isCache: %v", uid, consumerId, consumerCached)
 	if consumerId != 0 {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
 		ctx.Set("IS_GUEST", isGuest)
