@@ -17,15 +17,15 @@ import (
 )
 
 var (
-	FirebaseAuthClient        *auth.Client
-	TradersFirebaseAuthClient *auth.Client
-	UserIdToConsumerCache     cmap.ConcurrentMap //using concurrent map to prevent thread safe issues -  map[string]GetConsumerResult
-	UserIdToTraderCache       cmap.ConcurrentMap //using concurrent map to prevent thread safe issues - map[string]GetTraderResult
+	FirebaseAuthClient          *auth.Client
+	BackofficeAuthClient        *auth.Client
+	UserIdToConsumerCache       cmap.ConcurrentMap //using concurrent map to prevent thread safe issues -  map[string]GetConsumerResult
+	UserIdToBackofficeUserCache cmap.ConcurrentMap //using concurrent map to prevent thread safe issues - map[string]GetBackofficeUserResult
 )
 
 func Init() {
-	UserIdToConsumerCache = cmap.New() //using concurrent map to prevent thread safe issues
-	UserIdToTraderCache = cmap.New()   //using concurrent map to prevent thread safe issues
+	UserIdToConsumerCache = cmap.New()       //using concurrent map to prevent thread safe issues
+	UserIdToBackofficeUserCache = cmap.New() //using concurrent map to prevent thread safe issues
 }
 
 func SetupAllFirebase(accountKeyPath string, backofficeKeyPath string) (consumersFirebase *auth.Client, backofficeFirebase *auth.Client) {
@@ -90,9 +90,9 @@ func RequireAuth(ctx *gin.Context) {
 	backofficeFirebaseAuth := ctx.MustGet("backofficeFirebaseAuth").(*auth.Client)
 	requestContext := ctx.GetHeader("RequestContext")
 
-	var consumerCached, traderCached, isAdmin, isGuest, success bool
+	var consumerCached, backofficeCached, isAdmin, isGuest, success bool
 	isGuest = true
-	var consumerId, traderId uint
+	var consumerId, backofficeUserId uint
 	var email string
 
 	if requestContext != "Backoffice" {
@@ -112,24 +112,24 @@ func RequireAuth(ctx *gin.Context) {
 			consumerId, isGuest, success = tryExtractConsumerIdFromUid(ctx, email, uid)
 		}
 	} else {
-		if cacheTraderValue, ok := UserIdToTraderCache.Get(uid); ok {
-			cacheTrader := cacheTraderValue.(GetTraderResult)
-			if cacheTrader.ID != 0 {
-				traderId = cacheTrader.ID
-				isAdmin = cacheTrader.IsAdmin
+		if cacheBackofficeUserValue, ok := UserIdToBackofficeUserCache.Get(uid); ok {
+			cacheBackofficeUser := cacheBackofficeUserValue.(GetBackofficeUserResult)
+			if cacheBackofficeUser.ID != 0 {
+				backofficeUserId = cacheBackofficeUser.ID
+				isAdmin = cacheBackofficeUser.IsAdmin
 			}
-			traderCached = ok
+			backofficeCached = ok
 		}
-		if !traderCached {
+		if !backofficeCached {
 			email, success = tryGetUserEmail(ctx, backofficeFirebaseAuth, uid)
 			if !success {
 				return
 			}
-			traderId, isAdmin, success = tryExtractTraderIdFromUid(ctx, email, uid)
+			backofficeUserId, isAdmin, success = tryExtractBackofficeUserIdFromUid(ctx, email, uid)
 		}
 	}
 
-	if consumerId == 0 && traderId == 0 {
+	if consumerId == 0 && backofficeUserId == 0 {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Authentication Error. User not found.")})
 		ctx.Abort()
 		return
@@ -139,8 +139,8 @@ func RequireAuth(ctx *gin.Context) {
 		ctx.Set("AUTHENTICATED_CONSUMER_ID", consumerId)
 		ctx.Set("IS_GUEST", isGuest)
 	}
-	if traderId != 0 {
-		ctx.Set("AUTHENTICATED_TRADER_ID", traderId)
+	if backofficeUserId != 0 {
+		ctx.Set("AUTHENTICATED_BACKOFFICE_USER_ID", backofficeUserId)
 		ctx.Set("IS_ADMIN", isAdmin)
 	}
 	ctx.Next()
@@ -184,7 +184,7 @@ func tryExtractConsumerIdFromUid(ctx *gin.Context, email string, uid string) (id
 	return result.ID, result.IsGuest, true
 }
 
-type GetTraderResult struct {
+type GetBackofficeUserResult struct {
 	ID      uint
 	IsAdmin bool
 }
@@ -194,10 +194,10 @@ type GetConsumerResult struct {
 	IsGuest bool
 }
 
-func tryExtractTraderIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool, bool) {
-	var result GetTraderResult
-	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_admin FROM traders.traders WHERE email = ?", email).Scan(&result).Error
-	UserIdToTraderCache.Set(uid, result)
+func tryExtractBackofficeUserIdFromUid(ctx *gin.Context, email string, uid string) (uint, bool, bool) {
+	var result GetBackofficeUserResult
+	err2 := ctx.MustGet("DB").(*gorm.DB).Raw("SELECT id, is_admin FROM consumers.back_office_users WHERE email = ?", email).Scan(&result).Error
+	UserIdToBackofficeUserCache.Set(uid, result)
 
 	if err2 != nil || result.ID == 0 {
 		return 0, false, false

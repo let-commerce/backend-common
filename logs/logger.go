@@ -100,7 +100,7 @@ func (f *JsonFormatter) Format(entry *log.Entry) ([]byte, error) {
 	result["env"] = Env
 
 	requestId := ""
-	var consumerId, traderId uint
+	var consumerId, backofficeUserId uint
 	var isGuest, isAdmin bool
 	if ctx != nil {
 		requestId = requestid.GetRequestIDFromContext(ctx)
@@ -134,21 +134,21 @@ func (f *JsonFormatter) Format(entry *log.Entry) ([]byte, error) {
 			}
 		}
 
-		if v, ok := ctx.Get("AUTHENTICATED_TRADER_ID"); ok {
-			if authenticatedTraderId, ok := v.(uint); ok {
-				traderId = authenticatedTraderId
+		if v, ok := ctx.Get("AUTHENTICATED_BACKOFFICE_USER_ID"); ok {
+			if authenticatedBackofficeUserId, ok := v.(uint); ok {
+				backofficeUserId = authenticatedBackofficeUserId
 			}
 		}
 	}
-	var consumer, trader, authInfo string
+	var consumer, backofficeUser, authInfo string
 	if consumerId != 0 {
 		consumer = fmt.Sprintf("ConsumerId:%v (Guest:%v)", consumerId, isGuest)
 	}
-	if traderId != 0 {
-		trader = fmt.Sprintf("TraderId:%v (Admin:%v)", traderId, isAdmin)
+	if backofficeUserId != 0 {
+		backofficeUser = fmt.Sprintf("BackofficeId:%v (Admin:%v)", backofficeUserId, isAdmin)
 	}
-	if consumerId != 0 || traderId != 0 {
-		authInfo = fmt.Sprintf(" [%v%v]", consumer, trader)
+	if consumerId != 0 || backofficeUserId != 0 {
+		authInfo = fmt.Sprintf(" [%v%v]", consumer, backofficeUser)
 	}
 
 	result["message"] = fmt.Sprintf("%s [%v:%v:%v - %v]%v", entry.Message, ServiceName, Env, requestId, Caller(entry.Caller), authInfo)
