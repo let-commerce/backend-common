@@ -2,6 +2,7 @@ package db
 
 import (
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
+	redigo "github.com/gomodule/redigo/redis"
 	"github.com/let-commerce/backend-common/env"
 	"github.com/let-commerce/backend-common/redis"
 	log "github.com/sirupsen/logrus"
@@ -16,19 +17,25 @@ var (
 
 // ConnectAndMigrateIfNeeded connects to PostgresDB, and migrate if no migration done for the current commit sha already (according to redis)
 func ConnectAndMigrateIfNeeded(serviceName string, commitSHA string, dst ...interface{}) *gorm.DB {
+	var conn redigo.Conn
 	dsn := env.MustGetEnvVar("DATABASE_DSN")
 	useCloudSql := env.MustGetEnvVar("ENV") == "prod"
+	shouldMigrate := true
 
-	conn := redis.RedisConnect()
-	defer conn.Close()
+	if useCloudSql {
+		conn := redis.RedisConnect()
+		defer conn.Close()
 
-	redisLatestSha := redis.GetStringValue(conn, serviceName+"_latest_migrate_sha") // check if migration already done for current commit SHa
-	shouldMigrate := redisLatestSha != commitSHA
+		redisLatestSha := redis.GetStringValue(conn, serviceName+"_latest_migrate_sha") // check if migration already done for current commit SHa
+		shouldMigrate = redisLatestSha != commitSHA
+	}
 
 	connectToPublicSchema(dst, dsn, useCloudSql, shouldMigrate)
 	db := connectToServiceSchema(dst, serviceName, dsn, useCloudSql, shouldMigrate)
 
-	redis.SetValue(conn, serviceName+"_latest_migrate_sha", commitSHA) // update the latest commit sha in redis
+	if useCloudSql {
+		redis.SetValue(conn, serviceName+"_latest_migrate_sha", commitSHA) // update the latest commit sha in redis
+	}
 
 	log.Info("Postgres connected successfully.")
 
