@@ -23,7 +23,7 @@ func ConnectAndMigrateIfNeeded(serviceName string, commitSHA string, dst ...inte
 	shouldMigrate := true
 
 	if useCloudSql {
-		conn := redis.RedisConnect()
+		conn = redis.RedisConnect()
 		defer conn.Close()
 
 		redisLatestSha := redis.GetStringValue(conn, serviceName+"_latest_migrate_sha") // check if migration already done for current commit SHa
